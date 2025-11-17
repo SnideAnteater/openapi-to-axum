@@ -1,0 +1,10 @@
+[package]
+name = "code-generator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openapi-parser = { path = "../openapi-parser" }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
