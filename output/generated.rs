@@ -1,0 +1,5 @@
+use axum :: { routing :: { get , post } , Router , Json , extract :: Path , } ; 
+use serde :: { Deserialize , Serialize } ; 
+# [derive (Debug , Deserialize , Serialize)] 
+
+pub struct Pet { pub name : serde_json :: Value , pub tag : Option < serde_json :: Value > , pub id : serde_json :: Value } . route ("/pets" , axum :: routing :: "get" (handle_get__pets)) async fn handle_get__pets () -> & 'static str { "Hello, World!" } . route ("/pets" , axum :: routing :: "post" (handle_post__pets)) async fn handle_post__pets () -> & 'static str { "Hello, World!" } pub fn create_app () -> axum :: Router { axum :: Router :: new () . route ("/pets" , axum :: routing :: "get" (handle_get__pets)) async fn handle_get__pets () -> & 'static str { "Hello, World!" } . route ("/pets" , axum :: routing :: "post" (handle_post__pets)) async fn handle_post__pets () -> & 'static str { "Hello, World!" } }

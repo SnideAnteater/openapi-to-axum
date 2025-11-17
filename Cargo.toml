@@ -3,14 +3,14 @@ resolver = "3"
 members = ["cli", "code-generator", "openapi-parser"]
 
 [workspace.dependencies]
-serde = "1.0.228"
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 serde_yaml = "0.9.33"
-syn = "2.0.110"
+syn = { version= "2.0.110", features = ["full", "visit-mut", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 clap = { version = "4.0", features = ["derive"] }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 anyhow = "1.0"
 thiserror = "2.0.17"
 
