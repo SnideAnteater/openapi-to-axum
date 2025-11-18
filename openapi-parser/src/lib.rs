@@ -80,26 +80,32 @@ pub enum Schema {
     },
     Object {
         #[serde(rename = "type")]
-        type_: String,
+        type_: Option<String>,
         properties: Option<HashMap<String, Schema>>,
         required: Option<Vec<String>>,
         items: Option<Box<Schema>>,
         format: Option<String>,
     },
-    Simple {
+    SimpleType {
         #[serde(rename = "type")]
         type_: String,
         format: Option<String>,
     },
+    ArrayType {
+        #[serde(rename = "type")]
+        type_: String,
+        items: Box<Schema>,
+    },
 }
 
-// Helper implementation to make schema handling easier
+// Helper implementation
 impl Schema {
     pub fn get_type(&self) -> Option<&str> {
         match self {
             Schema::Reference { .. } => Some("reference"),
-            Schema::Object { type_, .. } => Some(type_),
-            Schema::Simple { type_, .. } => Some(type_),
+            Schema::Object { type_, .. } => type_.as_deref(),
+            Schema::SimpleType { type_, .. } => Some(type_),
+            Schema::ArrayType { type_, .. } => Some(type_),
         }
     }
 
