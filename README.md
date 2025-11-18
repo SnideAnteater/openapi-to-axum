@@ -145,23 +145,6 @@ Check the `examples/` directory for sample OpenAPI specs:
 - `petstore.yaml`: Simple Pet Store API
 - Add your own YAML/JSON files to test
 
-## Roadmap
-
-- [ ] Path parameter extraction
-- [ ] Request body validation
-- [ ] Response type generation
-- [ ] Error handling patterns
-- [ ] Authentication middleware
-- [ ] Database integration templates
-- [ ] Customizable code templates
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
-
 ## License
 
 MIT License - see LICENSE file for details.
