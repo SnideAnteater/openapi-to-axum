@@ -24,7 +24,7 @@ openapi-to-axum/
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone
 cd openapi-to-axum
 
 # Build the project
