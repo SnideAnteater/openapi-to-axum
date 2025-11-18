@@ -24,7 +24,7 @@ openapi-to-axum/
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone
 cd openapi-to-axum
 
 # Build the project
@@ -144,23 +144,6 @@ Check the `examples/` directory for sample OpenAPI specs:
 
 - `petstore.yaml`: Simple Pet Store API
 - Add your own YAML/JSON files to test
-
-## Roadmap
-
-- [ ] Path parameter extraction
-- [ ] Request body validation
-- [ ] Response type generation
-- [ ] Error handling patterns
-- [ ] Authentication middleware
-- [ ] Database integration templates
-- [ ] Customizable code templates
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
 
 ## License
 
