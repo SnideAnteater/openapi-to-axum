@@ -44,9 +44,10 @@ This will generate `generated.rs` in your current directory.
 
 ### Basic Usage
 
-````bash
+```bash
 # Generate from YAML file (outputs to ./generated.rs)
 cargo run -- -i examples/petstore.yaml -o ./output
+```
 
 ## What Gets Generated
 
@@ -124,6 +125,7 @@ The workspace is organized into three main crates:
 1. **openapi-parser**: Parses OpenAPI YAML/JSON into Rust structs
 2. **code-generator**: Converts parsed specs into Rust token streams
 3. **cli**: Command-line interface and file I/O
+
 ```
 
 ## Example Specifications
@@ -132,4 +134,4 @@ Check the `examples/` directory for sample OpenAPI specs:
 
 - `petstore.yaml`: Simple Pet Store API
 - Add your own YAML/JSON files to test
-````
+```
