@@ -62,6 +62,7 @@ impl CodeGenerator {
             openapi_parser::Schema::Object {
                 properties,
                 required,
+                type_,
                 ..
             } => {
                 if let Some(props) = properties {
@@ -95,20 +96,22 @@ impl CodeGenerator {
                 } else {
                     quote! {
                         #[derive(Debug, Deserialize, Serialize)]
-                        pub struct #struct_name {
-                            // Empty struct for objects without properties
-                        }
+                        pub struct #struct_name {}
                     }
                 }
             }
-            _ => {
-                // For non-object schemas, generate a simple struct
-                let field_type = Self::schema_to_type(schema);
+            openapi_parser::Schema::Reference { ref_ } => {
+                // Handle reference - shouldn't happen at top level but just in case
+                let type_name = ref_.split('/').last().unwrap_or("Value");
+                let ident = format_ident!("{}", Self::sanitize_identifier(type_name));
                 quote! {
-                    #[derive(Debug, Deserialize, Serialize)]
-                    pub struct #struct_name {
-                        value: #field_type
-                    }
+                    pub type #struct_name = #ident;
+                }
+            }
+            _ => {
+                // For other schema types, use serde_json::Value as fallback
+                quote! {
+                    pub type #struct_name = serde_json::Value;
                 }
             }
         }
@@ -117,27 +120,63 @@ impl CodeGenerator {
     fn schema_to_type(schema: &openapi_parser::Schema) -> TokenStream {
         match schema {
             openapi_parser::Schema::Reference { ref_ } => {
-                // Extract type name from reference like "#/components/schemas/User"
                 let type_name = ref_.split('/').last().unwrap_or("Value");
-                let ident = format_ident!("{}", type_name);
+                let ident = format_ident!("{}", Self::sanitize_identifier(type_name));
                 quote! { #ident }
             }
             openapi_parser::Schema::Object {
-                type_, properties, ..
+                type_,
+                format,
+                items,
+                ..
             } => {
-                // If it's an object with properties, it's a custom struct
-                // Otherwise, it's a generic JSON object
-                if properties.is_some() {
-                    quote! { serde_json::Value } // This will be handled by struct generation
+                // Check if it has a type field - might be a simple type in Object variant
+                if let Some(type_str) = type_ {
+                    match type_str.as_str() {
+                        "string" => {
+                            if let Some(fmt) = format {
+                                match fmt.as_str() {
+                                    "uuid" => quote! { String },
+                                    "date" | "date-time" => quote! { String },
+                                    _ => quote! { String },
+                                }
+                            } else {
+                                quote! { String }
+                            }
+                        }
+                        "integer" => {
+                            if let Some(fmt) = format {
+                                match fmt.as_str() {
+                                    "int32" => quote! { i32 },
+                                    "int64" => quote! { i64 },
+                                    _ => quote! { i64 },
+                                }
+                            } else {
+                                quote! { i64 }
+                            }
+                        }
+                        "number" => quote! { f64 },
+                        "boolean" => quote! { bool },
+                        "array" => {
+                            if let Some(items_schema) = items {
+                                let item_type = Self::schema_to_type(items_schema);
+                                quote! { Vec<#item_type> }
+                            } else {
+                                quote! { Vec<serde_json::Value> }
+                            }
+                        }
+                        _ => quote! { serde_json::Value },
+                    }
                 } else {
+                    // Inline object without properties
                     quote! { serde_json::Value }
                 }
             }
             openapi_parser::Schema::SimpleType { type_, format } => match type_.as_str() {
                 "string" => {
-                    if let Some(format) = format {
-                        match format.as_str() {
-                            "uuid" => quote! { uuid::Uuid },
+                    if let Some(fmt) = format {
+                        match fmt.as_str() {
+                            "uuid" => quote! { String },
                             "date" | "date-time" => quote! { String },
                             _ => quote! { String },
                         }
@@ -146,8 +185,8 @@ impl CodeGenerator {
                     }
                 }
                 "integer" => {
-                    if let Some(format) = format {
-                        match format.as_str() {
+                    if let Some(fmt) = format {
+                        match fmt.as_str() {
                             "int32" => quote! { i32 },
                             "int64" => quote! { i64 },
                             _ => quote! { i64 },
@@ -166,6 +205,7 @@ impl CodeGenerator {
             }
         }
     }
+
     fn generate_routes_and_handlers(spec: &OpenApiSpec) -> (TokenStream, TokenStream) {
         let mut routes = TokenStream::new();
         let mut handlers = TokenStream::new();
@@ -211,20 +251,127 @@ impl CodeGenerator {
             format_ident!("handle_{}_{}", method, Self::sanitize_path(path))
         };
 
-        // Convert method string to ident (remove quotes)
         let method_ident = format_ident!("{}", method);
+
+        // Extract path parameters
+        let path_params = Self::extract_path_parameters(path, operation);
+
+        // Extract request body type
+        let request_body = Self::extract_request_body(operation);
+
+        // Extract response type
+        let response_type = Self::extract_response_type(operation);
+
+        // Build handler parameters
+        let mut handler_params = TokenStream::new();
+
+        // Add path parameters
+        if !path_params.is_empty() {
+            let path_param_names: Vec<_> = path_params
+                .iter()
+                .map(|(name, _)| format_ident!("{}", Self::sanitize_identifier(name)))
+                .collect();
+
+            let path_param_types: Vec<_> =
+                path_params.iter().map(|(_, type_)| type_.clone()).collect();
+
+            if path_param_names.len() == 1 {
+                let name = &path_param_names[0];
+                let type_ = &path_param_types[0];
+                handler_params.extend(quote! {
+                    Path(#name): Path<#type_>,
+                });
+            } else {
+                handler_params.extend(quote! {
+                    Path((#(#path_param_names),*)): Path<(#(#path_param_types),*)>,
+                });
+            }
+        }
+
+        // Add request body
+        if let Some(body_type) = &request_body {
+            handler_params.extend(quote! {
+                Json(payload): Json<#body_type>,
+            });
+        }
 
         let route = quote! {
             .route(#path, #method_ident(#handler_name))
         };
 
-        let handler = quote! {
-            async fn #handler_name() -> &'static str {
-                "Hello, World!"
+        // Always generate a proper handler with Json response
+        let handler = if let Some(return_type) = response_type {
+            quote! {
+                async fn #handler_name(#handler_params) -> Json<#return_type> {
+                    todo!("Implement {} {}", #method, #path)
+                }
+            }
+        } else if request_body.is_some() || !path_params.is_empty() {
+            // If there are inputs but no explicit response type, return empty Json
+            quote! {
+                async fn #handler_name(#handler_params) -> Json<serde_json::Value> {
+                    todo!("Implement {} {}", #method, #path)
+                }
+            }
+        } else {
+            // Fallback for simple routes
+            quote! {
+                async fn #handler_name(#handler_params) -> Json<serde_json::Value> {
+                    todo!("Implement {} {}", #method, #path)
+                }
             }
         };
 
         (route, handler)
+    }
+
+    fn extract_path_parameters(
+        path: &str,
+        operation: &openapi_parser::Operation,
+    ) -> Vec<(String, TokenStream)> {
+        let mut params = Vec::new();
+
+        if let Some(parameters) = &operation.parameters {
+            for param in parameters {
+                if param.in_ == "path" {
+                    let param_type = if let Some(schema) = &param.schema {
+                        Self::schema_to_type(schema)
+                    } else {
+                        quote! { String }
+                    };
+                    params.push((param.name.clone(), param_type));
+                }
+            }
+        }
+
+        params
+    }
+
+    fn extract_request_body(operation: &openapi_parser::Operation) -> Option<TokenStream> {
+        operation.request_body.as_ref().and_then(|body| {
+            body.content.get("application/json").and_then(|media_type| {
+                media_type
+                    .schema
+                    .as_ref()
+                    .map(|schema| Self::schema_to_type(schema))
+            })
+        })
+    }
+
+    fn extract_response_type(operation: &openapi_parser::Operation) -> Option<TokenStream> {
+        // Look for successful response (200, 201, etc.)
+        for (status, response) in &operation.responses {
+            if status.starts_with('2') {
+                if let Some(content) = &response.content {
+                    if let Some(media_type) = content.get("application/json") {
+                        if let Some(schema) = &media_type.schema {
+                            return Some(Self::schema_to_type(schema));
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn sanitize_identifier(ident: &str) -> String {

@@ -9,3 +9,5 @@ code-generator = { path = "../code-generator" }
 clap = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
+syn = { workspace = true }
+prettyplease = { workspace = true}

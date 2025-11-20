@@ -23,10 +23,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Pet"
+              $ref: "#/components/schemas/NewPet"
       responses:
         "201":
           description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
 components:
   schemas:
     Pet:
@@ -38,6 +42,15 @@ components:
         id:
           type: integer
           format: int64
+        name:
+          type: string
+        tag:
+          type: string
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
         name:
           type: string
         tag:
