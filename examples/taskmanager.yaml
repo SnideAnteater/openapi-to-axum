@@ -1,0 +1,229 @@
+openapi: "3.0.0"
+info:
+  title: "Task Management API"
+  version: "1.0.0"
+paths:
+  /tasks:
+    get:
+      operationId: "listTasks"
+      summary: "List all tasks"
+      responses:
+        "200":
+          description: "A list of tasks"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: "createTask"
+      summary: "Create a task"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}:
+    get:
+      operationId: "getTask"
+      summary: "Get a task by ID"
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "A task"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    put:
+      operationId: "updateTask"
+      summary: "Update a task"
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: "Updated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /urgent-tasks:
+    get:
+      operationId: "listUrgentTasks"
+      summary: "List all urgent tasks"
+      responses:
+        "200":
+          description: "A list of urgent tasks"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/UrgentTask"
+    post:
+      operationId: "createUrgentTask"
+      summary: "Create an urgent task"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUrgentTaskRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UrgentTask"
+components:
+  schemas:
+    # Base properties shared by all tasks
+    BaseTaskProperties:
+      type: object
+      required:
+        - title
+        - status
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - todo
+            - in_progress
+            - done
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+        assigneeId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    # Timestamps used for persisted entities
+    Timestamps:
+      type: object
+      required:
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Entity identifier
+    EntityId:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+
+    # Request to create a task (no id or timestamps)
+    CreateTaskRequest:
+      allOf:
+        - $ref: "#/components/schemas/BaseTaskProperties"
+
+    # Request to update a task (all fields optional)
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - todo
+            - in_progress
+            - done
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+        assigneeId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    # Full task entity (base + id + timestamps)
+    Task:
+      allOf:
+        - $ref: "#/components/schemas/EntityId"
+        - $ref: "#/components/schemas/BaseTaskProperties"
+        - $ref: "#/components/schemas/Timestamps"
+
+    # Urgent task specific properties
+    UrgentTaskProperties:
+      type: object
+      required:
+        - escalationLevel
+        - dueBy
+      properties:
+        escalationLevel:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 5
+        dueBy:
+          type: string
+          format: date-time
+        notificationsSent:
+          type: integer
+          format: int32
+          default: 0
+
+    # Create urgent task request
+    CreateUrgentTaskRequest:
+      allOf:
+        - $ref: "#/components/schemas/BaseTaskProperties"
+        - $ref: "#/components/schemas/UrgentTaskProperties"
+
+    # Full urgent task entity
+    UrgentTask:
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - $ref: "#/components/schemas/UrgentTaskProperties"
+        - type: object
+          properties:
+            escalatedAt:
+              type: string
+              format: date-time

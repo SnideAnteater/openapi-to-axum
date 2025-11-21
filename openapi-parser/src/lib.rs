@@ -78,6 +78,22 @@ pub enum Schema {
         #[serde(rename = "$ref")]
         ref_: String,
     },
+    AllOf {
+        #[serde(rename = "allOf")]
+        all_of: Vec<Schema>,
+    },
+    OneOf {
+        #[serde(rename = "oneOf")]
+        one_of: Vec<Schema>,
+        discriminator: Option<Discriminator>,
+    },
+    AnyOf {
+        #[serde(rename = "anyOf")]
+        any_of: Vec<Schema>,
+    },
+    Not {
+        not: Box<Schema>,
+    },
     Object {
         #[serde(rename = "type")]
         type_: Option<String>,
@@ -85,11 +101,15 @@ pub enum Schema {
         required: Option<Vec<String>>,
         items: Option<Box<Schema>>,
         format: Option<String>,
+        #[serde(rename = "enum")]
+        enum_values: Option<Vec<serde_json::Value>>,
     },
     SimpleType {
         #[serde(rename = "type")]
         type_: String,
         format: Option<String>,
+        #[serde(rename = "enum")]
+        enum_values: Option<Vec<serde_json::Value>>,
     },
     ArrayType {
         #[serde(rename = "type")]
@@ -98,11 +118,21 @@ pub enum Schema {
     },
 }
 
-// Helper implementation
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Discriminator {
+    #[serde(rename = "propertyName")]
+    pub property_name: String,
+    pub mapping: Option<HashMap<String, String>>,
+}
+
 impl Schema {
     pub fn get_type(&self) -> Option<&str> {
         match self {
             Schema::Reference { .. } => Some("reference"),
+            Schema::AllOf { .. } => Some("allOf"),
+            Schema::OneOf { .. } => Some("oneOf"),
+            Schema::AnyOf { .. } => Some("anyOf"),
+            Schema::Not { .. } => Some("not"),
             Schema::Object { type_, .. } => type_.as_deref(),
             Schema::SimpleType { type_, .. } => Some(type_),
             Schema::ArrayType { type_, .. } => Some(type_),
@@ -118,6 +148,13 @@ impl Schema {
             Schema::Reference { ref_ } => Some(ref_),
             _ => None,
         }
+    }
+
+    pub fn is_composition(&self) -> bool {
+        matches!(
+            self,
+            Schema::AllOf { .. } | Schema::OneOf { .. } | Schema::AnyOf { .. } | Schema::Not { .. }
+        )
     }
 }
 
