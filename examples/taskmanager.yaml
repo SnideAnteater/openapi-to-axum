@@ -19,7 +19,7 @@ paths:
     post:
       operationId: "createTask"
       summary: "Create a task"
-      requestBody:
+      request_body:
         content:
           application/json:
             schema:
@@ -57,7 +57,7 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
+      request_body:
         content:
           application/json:
             schema:
@@ -85,7 +85,7 @@ paths:
     post:
       operationId: "createUrgentTask"
       summary: "Create an urgent task"
-      requestBody:
+      request_body:
         content:
           application/json:
             schema:

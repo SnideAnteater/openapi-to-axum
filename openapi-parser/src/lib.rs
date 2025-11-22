@@ -34,9 +34,11 @@ pub struct PathItem {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Operation {
+    // #[serde(rename = "operationId")]
     pub operation_id: Option<String>,
     pub summary: Option<String>,
     pub parameters: Option<Vec<Parameter>>,
+    // #[serde(rename = "requestBody")]
     pub request_body: Option<RequestBody>,
     pub responses: HashMap<String, Response>,
 }

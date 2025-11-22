@@ -108,7 +108,7 @@ impl CodeGenerator {
                     .iter()
                     .enumerate()
                     .map(|(idx, variant_schema)| {
-                        let variant_name = Self::get_variant_name(variant_schema, idx, spec);
+                        let variant_name = Self::get_variant_name(variant_schema, idx);
                         let variant_type = Self::schema_to_type(variant_schema, spec);
 
                         quote! {
@@ -142,7 +142,7 @@ impl CodeGenerator {
                     .iter()
                     .enumerate()
                     .map(|(idx, variant_schema)| {
-                        let variant_name = Self::get_variant_name(variant_schema, idx, spec);
+                        let variant_name = Self::get_variant_name(variant_schema, idx);
                         let variant_type = Self::schema_to_type(variant_schema, spec);
 
                         quote! {
@@ -224,11 +224,7 @@ impl CodeGenerator {
         }
     }
 
-    fn get_variant_name(
-        schema: &openapi_parser::Schema,
-        idx: usize,
-        spec: &OpenApiSpec,
-    ) -> proc_macro2::Ident {
+    fn get_variant_name(schema: &openapi_parser::Schema, idx: usize) -> proc_macro2::Ident {
         match schema {
             openapi_parser::Schema::Reference { ref_ } => {
                 let name = ref_.split('/').last().unwrap_or("Value");
@@ -390,7 +386,7 @@ impl CodeGenerator {
         let mut handlers = TokenStream::new();
 
         for (path, path_item) in &spec.paths {
-            let (path_routes, path_handlers) = Self::generate_path_routes(path, path_item);
+            let (path_routes, path_handlers) = Self::generate_path_routes(path, path_item, spec);
             routes.extend(path_routes);
             handlers.extend(path_handlers);
         }
@@ -401,27 +397,28 @@ impl CodeGenerator {
     fn generate_path_routes(
         path: &str,
         path_item: &openapi_parser::PathItem,
+        spec: &OpenApiSpec,
     ) -> (TokenStream, TokenStream) {
         let mut routes = TokenStream::new();
         let mut handlers = TokenStream::new();
 
         if let Some(op) = &path_item.get {
-            let (route, handler) = Self::generate_route("get", path, op);
+            let (route, handler) = Self::generate_route("get", path, op, spec);
             routes.extend(route);
             handlers.extend(handler);
         }
         if let Some(op) = &path_item.post {
-            let (route, handler) = Self::generate_route("post", path, op);
+            let (route, handler) = Self::generate_route("post", path, op, spec);
             routes.extend(route);
             handlers.extend(handler);
         }
         if let Some(op) = &path_item.put {
-            let (route, handler) = Self::generate_route("put", path, op);
+            let (route, handler) = Self::generate_route("put", path, op, spec);
             routes.extend(route);
             handlers.extend(handler);
         }
         if let Some(op) = &path_item.delete {
-            let (route, handler) = Self::generate_route("delete", path, op);
+            let (route, handler) = Self::generate_route("delete", path, op, spec);
             routes.extend(route);
             handlers.extend(handler);
         }
@@ -433,6 +430,7 @@ impl CodeGenerator {
         method: &str,
         path: &str,
         operation: &openapi_parser::Operation,
+        spec: &OpenApiSpec,
     ) -> (TokenStream, TokenStream) {
         let handler_name = if let Some(op_id) = &operation.operation_id {
             format_ident!("{}", Self::sanitize_identifier(op_id))
@@ -441,12 +439,14 @@ impl CodeGenerator {
         };
 
         let method_ident = format_ident!("{}", method);
-        let path_params = Self::extract_path_parameters(operation);
-        let request_body = Self::extract_request_body(operation);
-        let response_type = Self::extract_response_type(operation);
+        let path_params = Self::extract_path_parameters(operation, spec);
+        let request_body = Self::extract_request_body(operation, spec);
+        let response_type = Self::extract_response_type(operation, spec);
 
-        let mut handler_params = TokenStream::new();
+        // Build handler parameters in correct order
+        let mut handler_params = Vec::new();
 
+        // Add path parameters first
         if !path_params.is_empty() {
             let path_param_names: Vec<_> = path_params
                 .iter()
@@ -459,21 +459,29 @@ impl CodeGenerator {
             if path_param_names.len() == 1 {
                 let name = &path_param_names[0];
                 let type_ = &path_param_types[0];
-                handler_params.extend(quote! {
-                    Path(#name): Path<#type_>,
+                handler_params.push(quote! {
+                    Path(#name): Path<#type_>
                 });
             } else {
-                handler_params.extend(quote! {
-                    Path((#(#path_param_names),*)): Path<(#(#path_param_types),*)>,
+                handler_params.push(quote! {
+                    Path((#(#path_param_names),*)): Path<(#(#path_param_types),*)>
                 });
             }
         }
 
-        if let Some(body_type) = &request_body {
-            handler_params.extend(quote! {
-                Json(payload): Json<#body_type>,
+        // Add request body second
+        if let Some(body_type) = request_body.clone() {
+            handler_params.push(quote! {
+                Json(payload): Json<#body_type>
             });
         }
+
+        let params_combined = if handler_params.is_empty() {
+            quote! {}
+        } else {
+            let params = handler_params.iter();
+            quote! { #(#params),* }
+        };
 
         let route = quote! {
             .route(#path, #method_ident(#handler_name))
@@ -481,13 +489,13 @@ impl CodeGenerator {
 
         let handler = if let Some(return_type) = response_type {
             quote! {
-                async fn #handler_name(#handler_params) -> Json<#return_type> {
+                async fn #handler_name(#params_combined) -> Json<#return_type> {
                     todo!("Implement {} {}", #method, #path)
                 }
             }
         } else {
             quote! {
-                async fn #handler_name(#handler_params) -> Json<serde_json::Value> {
+                async fn #handler_name(#params_combined) -> Json<serde_json::Value> {
                     todo!("Implement {} {}", #method, #path)
                 }
             }
@@ -498,6 +506,7 @@ impl CodeGenerator {
 
     fn extract_path_parameters(
         operation: &openapi_parser::Operation,
+        spec: &OpenApiSpec,
     ) -> Vec<(String, TokenStream)> {
         let mut params = Vec::new();
 
@@ -505,18 +514,7 @@ impl CodeGenerator {
             for param in parameters {
                 if param.in_ == "path" {
                     let param_type = if let Some(schema) = &param.schema {
-                        Self::schema_to_type(
-                            schema,
-                            &OpenApiSpec {
-                                openapi: String::new(),
-                                info: openapi_parser::Info {
-                                    title: String::new(),
-                                    version: String::new(),
-                                },
-                                paths: std::collections::HashMap::new(),
-                                components: None,
-                            },
-                        )
+                        Self::schema_to_type(schema, spec)
                     } else {
                         quote! { String }
                     };
@@ -528,45 +526,36 @@ impl CodeGenerator {
         params
     }
 
-    fn extract_request_body(operation: &openapi_parser::Operation) -> Option<TokenStream> {
-        operation.request_body.as_ref().and_then(|body| {
-            body.content.get("application/json").and_then(|media_type| {
-                media_type.schema.as_ref().map(|schema| {
-                    Self::schema_to_type(
-                        schema,
-                        &OpenApiSpec {
-                            openapi: String::new(),
-                            info: openapi_parser::Info {
-                                title: String::new(),
-                                version: String::new(),
-                            },
-                            paths: std::collections::HashMap::new(),
-                            components: None,
-                        },
-                    )
-                })
-            })
-        })
+    fn extract_request_body(
+        operation: &openapi_parser::Operation,
+        spec: &OpenApiSpec,
+    ) -> Option<TokenStream> {
+        eprintln!("DEBUG: Checking request body for operation");
+        if let Some(request_body) = &operation.request_body {
+            eprintln!("DEBUG: Found request_body");
+            if let Some(media_type) = request_body.content.get("application/json") {
+                eprintln!("DEBUG: Found application/json media type");
+                if let Some(schema) = &media_type.schema {
+                    eprintln!("DEBUG: Found schema, converting to type");
+                    let schema_type = Self::schema_to_type(schema, spec);
+                    return Some(schema_type);
+                }
+            }
+        }
+        eprintln!("DEBUG: No request body found");
+        None
     }
 
-    fn extract_response_type(operation: &openapi_parser::Operation) -> Option<TokenStream> {
+    fn extract_response_type(
+        operation: &openapi_parser::Operation,
+        spec: &OpenApiSpec,
+    ) -> Option<TokenStream> {
         for (status, response) in &operation.responses {
             if status.starts_with('2') {
                 if let Some(content) = &response.content {
                     if let Some(media_type) = content.get("application/json") {
                         if let Some(schema) = &media_type.schema {
-                            return Some(Self::schema_to_type(
-                                schema,
-                                &OpenApiSpec {
-                                    openapi: String::new(),
-                                    info: openapi_parser::Info {
-                                        title: String::new(),
-                                        version: String::new(),
-                                    },
-                                    paths: std::collections::HashMap::new(),
-                                    components: None,
-                                },
-                            ));
+                            return Some(Self::schema_to_type(schema, spec));
                         }
                     }
                 }

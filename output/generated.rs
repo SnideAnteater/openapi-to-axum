@@ -7,41 +7,69 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 #[derive(Debug, Deserialize, Serialize)]
-pub struct CreateTaskRequest {
-    pub status: String,
-    pub description: Option<String>,
-    pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub title: String,
-    pub assigneeId: Option<String>,
-}
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UrgentTask {
-    pub id: String,
-    pub status: String,
-    pub description: Option<String>,
-    pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub title: String,
-    pub assigneeId: Option<String>,
-    pub createdAt: String,
-    pub updatedAt: String,
+pub struct UrgentTaskProperties {
     pub escalationLevel: i32,
-    pub notificationsSent: Option<i32>,
     pub dueBy: String,
-    pub escalatedAt: Option<String>,
+    pub notificationsSent: Option<i32>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Task {
     pub id: String,
-    pub status: String,
     pub description: Option<String>,
     pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub title: String,
     pub assigneeId: Option<String>,
+    pub title: String,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
     pub createdAt: String,
     pub updatedAt: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreateTaskRequest {
+    pub description: Option<String>,
+    pub priority: Option<String>,
+    pub assigneeId: Option<String>,
+    pub title: String,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct EntityId {
+    pub id: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UrgentTask {
+    pub id: String,
+    pub description: Option<String>,
+    pub priority: Option<String>,
+    pub assigneeId: Option<String>,
+    pub title: String,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
+    pub createdAt: String,
+    pub updatedAt: String,
+    pub escalationLevel: i32,
+    pub dueBy: String,
+    pub notificationsSent: Option<i32>,
+    pub escalatedAt: Option<String>,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BaseTaskProperties {
+    pub description: Option<String>,
+    pub priority: Option<String>,
+    pub assigneeId: Option<String>,
+    pub title: String,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UpdateTaskRequest {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub assigneeId: Option<String>,
+    pub priority: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Timestamps {
@@ -49,72 +77,49 @@ pub struct Timestamps {
     pub updatedAt: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
-pub struct UrgentTaskProperties {
-    pub escalationLevel: i32,
-    pub notificationsSent: Option<i32>,
-    pub dueBy: String,
-}
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BaseTaskProperties {
-    pub status: String,
-    pub description: Option<String>,
-    pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub title: String,
-    pub assigneeId: Option<String>,
-}
-#[derive(Debug, Deserialize, Serialize)]
-pub struct EntityId {
-    pub id: String,
-}
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpdateTaskRequest {
-    pub assigneeId: Option<String>,
-    pub title: Option<String>,
-    pub status: Option<String>,
-    pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub description: Option<String>,
-}
-#[derive(Debug, Deserialize, Serialize)]
 pub struct CreateUrgentTaskRequest {
-    pub status: String,
     pub description: Option<String>,
     pub priority: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub title: String,
     pub assigneeId: Option<String>,
+    pub title: String,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
     pub escalationLevel: i32,
-    pub notificationsSent: Option<i32>,
     pub dueBy: String,
+    pub notificationsSent: Option<i32>,
+}
+async fn handle_get__tasks__taskId_(Path(taskId): Path<String>) -> Json<Task> {
+    todo!("Implement {} {}", "get", "/tasks/{taskId}")
+}
+async fn handle_put__tasks__taskId_(
+    Path(taskId): Path<String>,
+    Json(payload): Json<UpdateTaskRequest>,
+) -> Json<Task> {
+    todo!("Implement {} {}", "put", "/tasks/{taskId}")
 }
 async fn handle_get__urgent_tasks() -> Json<Vec<UrgentTask>> {
     todo!("Implement {} {}", "get", "/urgent-tasks")
 }
-async fn handle_post__urgent_tasks() -> Json<UrgentTask> {
+async fn handle_post__urgent_tasks(
+    Json(payload): Json<CreateUrgentTaskRequest>,
+) -> Json<UrgentTask> {
     todo!("Implement {} {}", "post", "/urgent-tasks")
 }
 async fn handle_get__tasks() -> Json<Vec<Task>> {
     todo!("Implement {} {}", "get", "/tasks")
 }
-async fn handle_post__tasks() -> Json<Task> {
+async fn handle_post__tasks(Json(payload): Json<CreateTaskRequest>) -> Json<Task> {
     todo!("Implement {} {}", "post", "/tasks")
-}
-async fn handle_get__tasks__taskId_(Path(taskId): Path<String>) -> Json<Task> {
-    todo!("Implement {} {}", "get", "/tasks/{taskId}")
-}
-async fn handle_put__tasks__taskId_(Path(taskId): Path<String>) -> Json<Task> {
-    todo!("Implement {} {}", "put", "/tasks/{taskId}")
 }
 /// Create the Axum router with all generated routes
 pub fn create_app() -> Router {
     Router::new()
+        .route("/tasks/{taskId}", get(handle_get__tasks__taskId_))
+        .route("/tasks/{taskId}", put(handle_put__tasks__taskId_))
         .route("/urgent-tasks", get(handle_get__urgent_tasks))
         .route("/urgent-tasks", post(handle_post__urgent_tasks))
         .route("/tasks", get(handle_get__tasks))
         .route("/tasks", post(handle_post__tasks))
-        .route("/tasks/{taskId}", get(handle_get__tasks__taskId_))
-        .route("/tasks/{taskId}", put(handle_put__tasks__taskId_))
 }
 /// Start the server on the given address
 pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
