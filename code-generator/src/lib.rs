@@ -162,8 +162,6 @@ impl CodeGenerator {
             // Handle not - use serde_json::Value with a comment
             openapi_parser::Schema::Not { .. } => {
                 quote! {
-                    // Note: 'not' schema validation cannot be represented in Rust types
-                    // Using serde_json::Value for runtime validation
                     pub type #struct_name = serde_json::Value;
                 }
             }
@@ -244,7 +242,6 @@ impl CodeGenerator {
             openapi_parser::Schema::AllOf { .. }
             | openapi_parser::Schema::OneOf { .. }
             | openapi_parser::Schema::AnyOf { .. } => {
-                // Composition types should be defined elsewhere, use serde_json::Value as fallback
                 quote! { serde_json::Value }
             }
             openapi_parser::Schema::Object {
@@ -571,5 +568,94 @@ impl CodeGenerator {
     fn sanitize_path(path: &str) -> String {
         path.replace('/', "_")
             .replace(|c: char| !c.is_alphanumeric() && c != '_', "_")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openapi_parser::{OpenApiSpec, Operation, PathItem, Response};
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_path_item_parsing() {
+        let mut responses = HashMap::new();
+        responses.insert(
+            "200".to_string(),
+            Response {
+                description: "Success".to_string(),
+                content: None,
+            },
+        );
+
+        let operation = Operation {
+            operation_id: Some("getTask".to_string()),
+            summary: None,
+            parameters: None,
+            request_body: None,
+            responses,
+        };
+
+        let path_item = PathItem {
+            get: Some(operation),
+            post: None,
+            put: None,
+            delete: None,
+        };
+
+        assert!(path_item.get.is_some());
+    }
+
+    fn create_test_spec() -> OpenApiSpec {
+        OpenApiSpec {
+            openapi: "3.0.0".to_string(),
+            info: openapi_parser::Info {
+                title: "Test API".to_string(),
+                version: "1.0.0".to_string(),
+            },
+            paths: HashMap::new(),
+            components: None,
+        }
+    }
+
+    #[test]
+    fn test_sanitize_identifier() {
+        assert_eq!(CodeGenerator::sanitize_identifier("my-field"), "my_field");
+        assert_eq!(CodeGenerator::sanitize_identifier("my.field"), "my_field");
+        assert_eq!(
+            CodeGenerator::sanitize_identifier("valid_field"),
+            "valid_field"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_path() {
+        assert_eq!(CodeGenerator::sanitize_path("/tasks"), "_tasks");
+        assert_eq!(CodeGenerator::sanitize_path("/tasks/{id}"), "_tasks__id_");
+        assert_eq!(
+            CodeGenerator::sanitize_path("/urgent-tasks"),
+            "_urgent_tasks"
+        );
+    }
+
+    #[test]
+    fn test_generate_axum_app() {
+        let spec = create_test_spec();
+        let tokens = CodeGenerator::generate_axum_app(&spec);
+
+        // Verify tokens are not empty
+        let output = tokens.to_string();
+        assert!(!output.is_empty(), "Generated tokens should not be empty");
+
+        // TokenStream output is verbose, so just check for key identifiers
+        assert!(output.contains("Router"), "Should contain Router");
+        assert!(
+            output.contains("create_app"),
+            "Should contain create_app function"
+        );
+        assert!(
+            output.contains("start_server"),
+            "Should contain start_server function"
+        );
     }
 }

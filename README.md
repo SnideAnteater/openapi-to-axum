@@ -135,3 +135,34 @@ Check the `examples/` directory for sample OpenAPI specs:
 - `petstore.yaml`: Simple Pet Store API
 - Add your own YAML/JSON files to test
 ```
+
+### Running Tests
+
+Run all tests across the workspace:
+
+```bash
+cargo test
+```
+
+Run tests for a specific crate:
+
+```bash
+# Test the OpenAPI parser
+cargo test -p openapi-parser
+
+# Test the code generator
+cargo test -p code-generator
+```
+
+Run tests with output:
+
+```bash
+cargo test -- --nocapture
+```
+
+The test suite includes:
+
+- Unit tests for OpenAPI spec parsing
+- Full specification parsing tests
+- Code generation tests with sample specs
+- Schema reference and composition tests

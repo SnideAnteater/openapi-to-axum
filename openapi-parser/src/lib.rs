@@ -169,3 +169,69 @@ impl OpenApiSpec {
         serde_json::from_str(content).map_err(|e| OpenApiError::ParseError(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_valid_yaml() {
+        let yaml = r#"
+        openapi: "3.0.0"
+        info:
+        title: "Test API"
+        version: "1.0.0"
+        paths: {}
+        components:
+        schemas:
+            Task:
+            type: object
+            properties:
+                id:
+                type: string
+        "#;
+        let result = OpenApiSpec::from_yaml(yaml);
+        assert!(result.is_ok());
+        let spec = result.unwrap();
+        assert_eq!(spec.info.title, "Test API");
+    }
+
+    #[test]
+    fn test_parse_invalid_yaml() {
+        let invalid_yaml = "{ invalid yaml";
+        let result = OpenApiSpec::from_yaml(invalid_yaml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_valid_json() {
+        let json = r#"{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Test API",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {}
+  }
+}"#;
+        let result = OpenApiSpec::from_json(json);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_schema_reference() {
+        let schema = Schema::Reference {
+            ref_: "#/components/schemas/Task".to_string(),
+        };
+        assert!(schema.is_reference());
+        assert_eq!(schema.get_reference(), Some("#/components/schemas/Task"));
+    }
+
+    #[test]
+    fn test_schema_composition() {
+        let schema = Schema::AllOf { all_of: vec![] };
+        assert!(schema.is_composition());
+    }
+}
