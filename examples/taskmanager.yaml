@@ -2,11 +2,16 @@ openapi: "3.0.0"
 info:
   title: "Task Management API"
   version: "1.0.0"
+x-auth-service:
+  url: "http://localhost:8080"
+  type: "user"
 paths:
   /tasks:
     get:
       operationId: "listTasks"
       summary: "List all tasks"
+      x-auth-required: true
+      x-auth-roles: ["user", "admin"]
       responses:
         "200":
           description: "A list of tasks"
@@ -19,7 +24,9 @@ paths:
     post:
       operationId: "createTask"
       summary: "Create a task"
-      request_body:
+      x-auth-required: true
+      x-auth-roles: ["admin"]
+      requestBody:
         content:
           application/json:
             schema:
@@ -51,13 +58,15 @@ paths:
     put:
       operationId: "updateTask"
       summary: "Update a task"
+      x-auth-required: true
+      x-auth-roles: ["admin"]
       parameters:
         - name: taskId
           in: path
           required: true
           schema:
             type: string
-      request_body:
+      requestBody:
         content:
           application/json:
             schema:
@@ -69,6 +78,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Task"
+    delete:
+      operationId: "deleteTask"
+      summary: "Delete a task"
+      x-auth-required: true
+      x-auth-roles: ["admin", "superadmin"]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: "Deleted"
   /urgent-tasks:
     get:
       operationId: "listUrgentTasks"
@@ -85,7 +108,9 @@ paths:
     post:
       operationId: "createUrgentTask"
       summary: "Create an urgent task"
-      request_body:
+      x-auth-required: true
+      x-auth-roles: ["admin"]
+      requestBody:
         content:
           application/json:
             schema:

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["cli", "code-generator", "openapi-parser"]
+members = ["auth-service","cli", "code-generator", "openapi-parser", "auth-service"]
 
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
@@ -14,3 +14,9 @@ tokio = { version = "1.48", features = ["full"] }
 anyhow = "1.0"
 thiserror = "2.0.17"
 prettyplease = "0.2"
+axum = "0.8.4"
+jsonwebtoken = "9.3.1"
+tower = "0.5.2"
+tower-http = "0.6.6"
+chrono = "0.4.42"
+async-trait = "0.1.89"
